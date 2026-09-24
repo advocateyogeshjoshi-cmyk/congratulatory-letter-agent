@@ -1,0 +1,36 @@
+name: Daily Pudhari 10 AM Scan
+
+on:
+  schedule:
+    # 10:00 AM IST corresponds to 04:30 AM UTC
+    - cron: '30 4 * * *'
+  workflow_dispatch:
+
+jobs:
+  run-agent:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          
+      - name: Install Dependencies
+        run: |
+          pip install requests beautifulsoup4 google-generativeai pypdf pillow
+          
+      - name: Run Pudhari Scraper Agent
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: python daily_pudhari_agent.py
+        
+      - name: Commit Captured News to Repository
+        run: |
+          git config --global user.name "Pudhari Auto-Agent"
+          git config --global user.email "agent@github.com"
+          git add daily_clippings/
+          git commit -m "Auto-captured Daily Pudhari news items for $(date +'%Y-%m-%d')" || exit 0
+          git push
+          
