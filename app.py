@@ -1,6 +1,8 @@
 import streamlit as st
 import google.generativeai as genai
 from pypdf import PdfReader
+from PIL import Image
+import io
 
 # ------------------------------------------------------------------------------
 # 1. Page Configuration
@@ -39,13 +41,12 @@ if api_key and ("Gemini" in ai_choice):
     genai.configure(api_key=api_key)
 
 # ------------------------------------------------------------------------------
-# 3. Main Interface
+# 3. Input Document Section (Source Document / Clipping)
 # ------------------------------------------------------------------------------
 st.title("Congratulatory Letter Agent")
 
-st.subheader("Upload or Capture Document")
+st.subheader("Upload or Capture Source Document")
 
-# Dual tabs for File Upload and Live Camera Capture
 tab1, tab2 = st.tabs(["📁 Browse Files", "📷 Take a Photo"])
 
 uploaded_file = None
@@ -53,26 +54,28 @@ camera_file = None
 
 with tab1:
     uploaded_file = st.file_uploader(
-        "Browse and upload any document or clipping (Images, PDF, TXT, DOCX, CSV, etc.)",
+        "Browse and upload any source document or clipping (Images, PDF, TXT, DOCX, CSV, etc.)",
         type=["pdf", "png", "jpg", "jpeg", "txt"],
         key="file_uploader"
     )
 
 with tab2:
-    # st.camera_input triggers browser permission for camera feed
     camera_file = st.camera_input("Capture document using camera", key="camera_input")
 
-# Use whichever input the user provided
 active_document = uploaded_file or camera_file
 
 if active_document:
-    st.success(f"Document received: {active_document.name if hasattr(active_document, 'name') else 'Captured Photo'}")
+    st.success(f"Source Document received: {active_document.name if hasattr(active_document, 'name') else 'Captured Photo'}")
 
 st.write("---")
 
 # ------------------------------------------------------------------------------
-# 4. Template Area
+# 4. Template & Format Selection (Text or File Upload)
 # ------------------------------------------------------------------------------
+st.subheader("Congratulatory Letter Template & Format")
+
+tmpl_tab1, tmpl_tab2 = st.tabs(["📝 Text Template", "📁 Upload Template / Letterhead File"])
+
 default_template = """माननीय {name} जी,
 
 आपल्याला [Achievement/Election/Nomination: {achievement}] बद्दल मन:पूर्वक अभिनंदन आणि हार्दिक शुभेच्छा!
@@ -83,22 +86,47 @@ default_template = """माननीय {name} जी,
 ॲड. योगेश जोशी
 जोशी अँड असोसिएट्स, कोल्हापूर"""
 
-st.subheader("Congratulatory Letter Template")
-st.caption("Use placeholders like {name}, {title}, {achievement}")
+with tmpl_tab1:
+    st.caption("Use placeholders like {name}, {title}, {achievement}")
+    template_text = st.text_area(
+        label="Template Text",
+        value=default_template,
+        height=200,
+        label_visibility="collapsed"
+    )
 
-template_text = st.text_area(
-    label="Template Text",
-    value=default_template,
-    height=220,
-    label_visibility="collapsed"
-)
+template_file = None
+with tmpl_tab2:
+    st.caption("Upload a custom letterhead, background template image, or reference file (PNG, JPG, PDF, DOCX)")
+    template_file = st.file_uploader(
+        "Upload Template File / Format",
+        type=["png", "jpg", "jpeg", "pdf", "docx", "txt"],
+        key="template_file_uploader"
+    )
+    
+    if template_file:
+        st.success(f"Template file loaded: {template_file.name}")
+        # Preview template image if applicable
+        if template_file.type.startswith("image/"):
+            image = Image.open(template_file)
+            st.image(image, caption="Template / Letterhead Preview", use_container_width=True)
 
-# Process Button
+st.write("---")
+
+# ------------------------------------------------------------------------------
+# 5. Letter Generation Execution
+# ------------------------------------------------------------------------------
 if st.button("Generate Letter", type="primary"):
     if not api_key and ("Gemini" in ai_choice):
         st.error("Please enter an API Key in the sidebar or configure it in Streamlit Secrets.")
     elif not active_document:
-        st.warning("Please upload a document or capture a photo first.")
+        st.warning("Please upload a source document or capture a photo first.")
     else:
-        st.info("Processing document and generating congratulatory letter...")
-        # Add your document parsing & Gemini generation code here
+        st.info("Processing document, applying template format, and generating letter...")
+        
+        if template_file:
+            st.write(f"📌 Using custom template file: **{template_file.name}**")
+        else:
+            st.write("📌 Using standard text template layout.")
+            
+        # AI generation code proceeds here
