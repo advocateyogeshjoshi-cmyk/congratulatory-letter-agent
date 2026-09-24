@@ -41,26 +41,27 @@ if api_key and ("Gemini" in ai_choice):
     genai.configure(api_key=api_key)
 
 # ------------------------------------------------------------------------------
-# 3. Input Document Section (Source Document / Clipping)
+# 3. Input Document Section (Source Clipping / Photo)
 # ------------------------------------------------------------------------------
 st.title("Congratulatory Letter Agent")
 
 st.subheader("Upload or Capture Source Document")
 
-tab1, tab2 = st.tabs(["📁 Browse Files", "📷 Take a Photo"])
+tab1, tab2 = st.tabs(["📁 Upload or Snap Photo", "📷 Web Camera Feed"])
 
 uploaded_file = None
 camera_file = None
 
 with tab1:
+    # This uploader triggers the native phone camera selection menu on mobile/tablets
     uploaded_file = st.file_uploader(
-        "Browse and upload any source document or clipping (Images, PDF, TXT, DOCX, CSV, etc.)",
+        "Browse files or open native camera to snap clipping",
         type=["pdf", "png", "jpg", "jpeg", "txt"],
         key="file_uploader"
     )
 
 with tab2:
-    camera_file = st.camera_input("Capture document using camera", key="camera_input")
+    camera_file = st.camera_input("Capture using live web camera feed", key="camera_input")
 
 active_document = uploaded_file or camera_file
 
@@ -97,7 +98,7 @@ with tmpl_tab1:
 
 template_file = None
 with tmpl_tab2:
-    st.caption("Upload a custom letterhead, background template image, or reference file (PNG, JPG, PDF, DOCX)")
+    st.caption("Upload a custom letterhead image, background template, or reference draft file (PNG, JPG, PDF, DOCX, TXT)")
     template_file = st.file_uploader(
         "Upload Template File / Format",
         type=["png", "jpg", "jpeg", "pdf", "docx", "txt"],
@@ -128,5 +129,3 @@ if st.button("Generate Letter", type="primary"):
             st.write(f"📌 Using custom template file: **{template_file.name}**")
         else:
             st.write("📌 Using standard text template layout.")
-            
-        # AI generation code proceeds here
