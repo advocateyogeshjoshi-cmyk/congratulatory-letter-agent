@@ -2,7 +2,7 @@ import streamlit as st
 import google.generativeai as genai
 from pypdf import PdfReader
 from PIL import Image
-import io
+import os
 
 # ------------------------------------------------------------------------------
 # 1. Page Configuration
@@ -13,8 +13,12 @@ st.set_page_config(
     layout="wide"
 )
 
+# Directory where automated daily clippings and drafts are saved
+CLIPPINGS_DIR = "daily_clippings"
+os.makedirs(CLIPPINGS_DIR, exist_ok=True)
+
 # ------------------------------------------------------------------------------
-# 2. Sidebar: AI Provider Settings
+# 2. Sidebar: AI Provider Settings & Daily Automation Info
 # ------------------------------------------------------------------------------
 st.sidebar.title("AI Provider Access")
 
@@ -34,44 +38,66 @@ user_api_key = st.sidebar.text_input(
 
 st.sidebar.caption("Note: If no key is entered here, the app will fall back to your configured Streamlit Secrets.")
 
-# Resolve API Key setup
 api_key = user_api_key or st.secrets.get("GEMINI_API_KEY", "")
 
 if api_key and ("Gemini" in ai_choice):
     genai.configure(api_key=api_key)
 
+st.sidebar.write("---")
+st.sidebar.subheader("⏰ Daily Automation Status")
+st.sidebar.info("Scheduled task runs daily at **10:00 AM IST** to scan Daily Pudhari (Kolhapur edition) for political/social appointments.")
+
 # ------------------------------------------------------------------------------
-# 3. Input Document Section (Source Clipping / Photo)
+# 3. Input Document Section (Manual Upload, Camera, or Daily Auto-Captured)
 # ------------------------------------------------------------------------------
 st.title("Congratulatory Letter Agent")
 
-st.subheader("Upload or Capture Source Document")
+st.subheader("Source Document Selection")
 
-tab1, tab2 = st.tabs(["📁 Upload or Snap Photo", "📷 Web Camera Feed"])
+tab1, tab2, tab3 = st.tabs([
+    "🗞️ Today's Auto-Captured Pudhari News", 
+    "📁 Upload or Snap Photo", 
+    "📷 Web Camera Feed"
+])
 
 uploaded_file = None
 camera_file = None
+selected_daily_file = None
 
 with tab1:
-    # This uploader triggers the native phone camera selection menu on mobile/tablets
+    st.caption("News clippings automatically scraped from Daily Pudhari (Kolhapur Edition)")
+    auto_files = [f for f in os.listdir(CLIPPINGS_DIR) if f.endswith(('.png', '.jpg', '.jpeg', '.pdf'))]
+    
+    if auto_files:
+        selected_file_name = st.selectbox("Select captured news item:", auto_files)
+        file_path = os.path.join(CLIPPINGS_DIR, selected_file_name)
+        selected_daily_file = open(file_path, "rb")
+        
+        if selected_file_name.endswith(('.png', '.jpg', '.jpeg')):
+            st.image(file_path, caption=selected_file_name, use_container_width=True)
+    else:
+        st.info("No auto-captured news items found for today yet. The automated scan runs at 10:00 AM daily.")
+
+with tab2:
     uploaded_file = st.file_uploader(
         "Browse files or open native camera to snap clipping",
         type=["pdf", "png", "jpg", "jpeg", "txt"],
         key="file_uploader"
     )
 
-with tab2:
+with tab3:
     camera_file = st.camera_input("Capture using live web camera feed", key="camera_input")
 
-active_document = uploaded_file or camera_file
+active_document = selected_daily_file or uploaded_file or camera_file
 
 if active_document:
-    st.success(f"Source Document received: {active_document.name if hasattr(active_document, 'name') else 'Captured Photo'}")
+    doc_name = getattr(active_document, 'name', 'Captured/Selected Photo')
+    st.success(f"Source Document active: **{doc_name}**")
 
 st.write("---")
 
 # ------------------------------------------------------------------------------
-# 4. Template & Format Selection (Text or File Upload)
+# 4. Template & Format Selection
 # ------------------------------------------------------------------------------
 st.subheader("Congratulatory Letter Template & Format")
 
@@ -107,7 +133,6 @@ with tmpl_tab2:
     
     if template_file:
         st.success(f"Template file loaded: {template_file.name}")
-        # Preview template image if applicable
         if template_file.type.startswith("image/"):
             image = Image.open(template_file)
             st.image(image, caption="Template / Letterhead Preview", use_container_width=True)
@@ -121,11 +146,11 @@ if st.button("Generate Letter", type="primary"):
     if not api_key and ("Gemini" in ai_choice):
         st.error("Please enter an API Key in the sidebar or configure it in Streamlit Secrets.")
     elif not active_document:
-        st.warning("Please upload a source document or capture a photo first.")
+        st.warning("Please select an auto-captured news item, upload a source document, or take a photo first.")
     else:
-        st.info("Processing document, applying template format, and generating letter...")
+        st.info("Processing document, analyzing appointment details, and drafting Marathi congratulatory letter...")
         
         if template_file:
-            st.write(f"📌 Using custom template file: **{template_file.name}**")
+            st.write(f"📌 Using custom template file format: **{template_file.name}**")
         else:
-            st.write("📌 Using standard text template layout.")
+            st.write("📌 Using standard text template format.")
